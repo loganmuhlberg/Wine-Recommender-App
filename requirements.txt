@@ -1,0 +1,7 @@
+streamlit
+numpy
+sqlite3
+fastapi
+pydantic
+chromadb
+sqlmodel
