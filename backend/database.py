@@ -2,8 +2,15 @@
 database.py
 
 Set up SQLite database using the models from models.py.
+Inlcudes SQLite connection setup, session management, and CRUD helper functions.
 
-
+Usage in FastAPI endpoints:
+    from database import get_session
+    from sqlmodel import Session
+ 
+    @app.post("/profile")
+    def create_profile(profile: TasteProfileCreate, session: Session = Depends(get_session)):
+        return db_create_profile(session, profile)
 """
 
 from datetime import datetime
@@ -60,9 +67,11 @@ def db_get_user(session: Session, user_id: int) -> Optional[User]:
  
  
 def db_get_all_users(session: Session) -> list[User]:
+    """Return all users."""
     return session.exec(select(User)).all()
 
 ### Taste Profile CRUD
+
 
 def db_create_profile( 
     session: Session, profile_in: TasteProfileCreate
@@ -114,7 +123,7 @@ def db_update_profile(
     for field, value in update_data.items():
         setattr(profile, field, value)
  
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.utc()
     session.add(profile)
     session.commit()
     session.refresh(profile)
@@ -163,14 +172,12 @@ def db_finalize_recommendation(
     rag_candidates_retrieved: int,
 ) -> Optional[Recommendation]:
     """
-    After all wines are added, store the raw LLM response
-    and the number of RAG candidates used for debugging.
+    After all wines are added, store the raw LLM response.
     """
     rec = session.get(Recommendation, recommendation_id)
     if not rec:
         return None
     rec.llm_raw_response = llm_raw_response
-    rec.rag_candidates_retrieved = rag_candidates_retrieved
     session.add(rec)
     session.commit()
     session.refresh(rec)

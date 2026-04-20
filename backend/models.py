@@ -144,32 +144,37 @@ class TasteProfileRead(TasteProfileBase):
     
 
 ### Recommendations
+
+
 class RecommendedWine(SQLModel, table = True):
+    """
+    All attributes of one recommended wine in a recommendation from the LLM.
+    Contains the characteristics and other attributes from the base search dataset,
+    as well as the result display data from Brave API searching.
+    """
     id : Optional[int] = Field(default = None, primary_key = True)
     recommendation_id : int = Field(foreign_key = "recommendation.id")
     rank : int = Field(default = 1)
 
     # Wine Characteristics
-    wine_name : str
-    winery : Optional[str]
-    varietal : Optional[str]
-    region : Optional[str]
-    country : Optional[str]
+    wine_name : str = None
+    winery : Optional[str] = None
+    varietal : Optional[str] = None
+    region : Optional[str] = None
+    country : Optional[str] = None
     
     # Attributes from Base Dataset
     points : Optional[int] = Field(default = None, ge = 0, le = 100)
     price : Optional[float] = Field(default = None, ge = 0)
-    description : Optional[float] = None
+    description : Optional[str] = None
 
     # Rational from LLM
     rationale : Optional[str] = None
 
-    # Vivino Display Data 
-    vivino_price : Optional[str] = None
-    vivino_thumb : Optional[str] = None
-    vivino_link : Optional[str] = None
-    vivino_rating : Optional[str] = None
-    vivino_name : Optional[str] = None
+    # Result Display Data 
+    thumbnail : Optional[str] = None
+    thumbnail_source = Optional[str] = None
+    buylink : Optional[str] = None
 
     # Relationship
     recommendation: Optional["Recommendation"] = Relationship(back_populates="wines")
