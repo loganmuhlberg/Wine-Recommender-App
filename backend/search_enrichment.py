@@ -49,7 +49,7 @@ class WineEnrichment:
     wine_name: str
 
     # Image fields — use thumbnail_url for display (proxied, resized to 500px wide)
-    thumbnail_url: Optional[str] = None      # brave proxy URL — fast, privacy-safe
+    thumbnail_url: Optional[str] = None      
     image_source: Optional[str] = None       # domain the image came from
 
     # Buy/info link fields
