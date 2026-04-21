@@ -5,3 +5,7 @@ fastapi
 pydantic
 chromadb
 sqlmodel
+chromadb 
+sentence-transformers 
+pandas 
+tqdm
