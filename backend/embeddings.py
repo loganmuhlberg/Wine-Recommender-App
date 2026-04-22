@@ -131,7 +131,10 @@ def get_recommended_wines(
         regions: Optional[list[str]] = None,
         countries: Optional[list[str]] = None,
         varietals: Optional[list[str]] = None,
-        num_results : Optional[str] = 10
+        num_results : Optional[str] = 10,
+        mmr : bool = True,
+        mmr_lambda: float = 0.7,
+        mmr_fetch_k: int = 50, 
 ) -> list[dict]:
     """
     takes in an initial query from the user along with price, region, country, and varietal
@@ -148,12 +151,13 @@ def get_recommended_wines(
 
     kwargs = {
         "query_embeddings": query_embedding,
-        "n_results": num_results,
-        "include": ["documents", "metadatas", "distances"],
+        "n_results": mmr_fetch_k if mmr else num_results,
+        "include": ["documents", "metadatas", "distances", "embeddings"],
         }
     
     if filter:
         kwargs["where"] = filter
+
 
     try:
         results = collection.query(**kwargs)
@@ -162,6 +166,7 @@ def get_recommended_wines(
         return []
     
     wines = []
+    
     for doc, meta, dist in zip(
         results["documents"][0],
         results["metadatas"][0],
@@ -180,6 +185,64 @@ def get_recommended_wines(
             # Convert cosine distance → similarity score (distance of 0 = perfect match)
             "similarity":  round(1 - dist, 4),
         })
+
+    if mmr and results.get("embeddings"):
+        candidate_embeddings = results["embeddings"][0]
+        candidates = wines  # the already-unpacked list
+        return mmr_select(query_embedding[0], candidate_embeddings, candidates, num_results, mmr_lambda)
  
     return wines
 
+import numpy as np
+
+def mmr_select(
+    query_embedding: list[float],
+    candidate_embeddings: list[list[float]],
+    candidates: list[dict],
+    k: int = 10,
+    lambda_param: float = 0.7,
+) -> list[dict]:
+    """
+    Maximal Marginal Relevance selection over a candidate set.
+    
+    query_embedding:      the embedded user query (1D)
+    candidate_embeddings: embeddings of all candidates returned by ChromaDB
+    candidates:           the unpacked wine dicts matching candidate_embeddings
+    k:                    how many wines to return
+    lambda_param:         0=max diversity, 1=max similarity, 0.7 is a good default
+    """
+    query_vec = np.array(query_embedding)
+    cand_vecs = np.array(candidate_embeddings)
+
+    # Cosine similarity between query and all candidates
+    query_sims = cand_vecs @ query_vec / (
+        np.linalg.norm(cand_vecs, axis=1) * np.linalg.norm(query_vec) + 1e-10
+    )
+
+    selected_indices = []
+    remaining = list(range(len(candidates)))
+
+    for _ in range(min(k, len(candidates))):
+        if not selected_indices:
+            # First pick — pure similarity to query
+            best = max(remaining, key=lambda i: query_sims[i])
+        else:
+            # Subsequent picks — balance similarity vs redundancy
+            selected_vecs = cand_vecs[selected_indices]
+            scores = []
+            for i in remaining:
+                relevance = query_sims[i]
+                # Max similarity to any already-selected wine
+                redundancy = max(
+                    cand_vecs[i] @ selected_vecs[j] / (
+                        np.linalg.norm(cand_vecs[i]) * np.linalg.norm(selected_vecs[j]) + 1e-10
+                    )
+                    for j in range(len(selected_indices))
+                )
+                scores.append((i, lambda_param * relevance - (1 - lambda_param) * redundancy))
+            best = max(scores, key=lambda x: x[1])[0]
+
+        selected_indices.append(best)
+        remaining.remove(best)
+
+    return [candidates[i] for i in selected_indices]

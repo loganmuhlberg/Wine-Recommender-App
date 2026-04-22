@@ -16,3 +16,4 @@ for i, wine in enumerate(results):
           f" | similarity: {wine['similarity']}")
     print(f"       {wine['description'][:100]}...")
     print()
+
