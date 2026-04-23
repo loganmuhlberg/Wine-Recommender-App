@@ -8,13 +8,13 @@ Recommendation - Saved recommendations
 RecommendedWine - specific wines within the recommendation
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field, Relationship
 import json
 
 class UserBase(SQLModel):
-    display_name: Optional[int] = Field(default = None, max_length = 100)
+    display_name: Optional[str] = Field(default = None, max_length = 100)
 
 class User(UserBase, table = True):
     """
@@ -22,8 +22,7 @@ class User(UserBase, table = True):
     User created when opening the app for the first time.
     """
     id : Optional[int] = Field(default = None, primary_key = True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    password : str
+    created_at: datetime = Field(default_factory= lambda :datetime.now(timezone.utc))
 
     #Relationships
     taste_profile: Optional["TasteProfile"] = Relationship(back_populates="user")
@@ -40,7 +39,6 @@ class UserRead(UserBase):
     User reading schema (to avoid password sharing)
     """
     id : int
-    password: str
     created_at : datetime
 
 
@@ -72,11 +70,11 @@ class TasteProfileBase(SQLModel):
     # Flavor and Aroma Notes
     flavors : str = Field(
         description = "Preferred Flavors in Wine. Stored as array of input flavors.",
-        defualt = "[]"
+        default = "[]"
     )
     aromas : str = Field(
         description = "Preferred Aromas in Wine. Stored as array of input flavors.",
-        defualt = "[]"
+        default = "[]"
     )
 
     # Region Preferences
@@ -89,11 +87,11 @@ class TasteProfileBase(SQLModel):
     price_min : float = Field(default = 0.0, ge = 0)
     price_max : float = Field(default = 50.0, ge = 0)
 
-class TasteProfile(TasteProfileBase):
+class TasteProfile(TasteProfileBase, table = True):
     id : Optional[int] = Field(default = None, primary_key = True)
     user_id : int = Field(foreign_key = "user.id", unique = True)
-    created_at : datetime = Field(default_factory=datetime.utc)
-    updated_at : datetime = Field(default_factory=datetime.utc)
+    created_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     user: Optional[User] = Relationship(back_populates="taste_profile")
 
@@ -157,7 +155,7 @@ class RecommendedWine(SQLModel, table = True):
     rank : int = Field(default = 1)
 
     # Wine Characteristics
-    wine_name : str = None
+    wine_name : Optional[str] = None
     winery : Optional[str] = None
     varietal : Optional[str] = None
     region : Optional[str] = None
@@ -173,25 +171,31 @@ class RecommendedWine(SQLModel, table = True):
 
     # Result Display Data 
     thumbnail : Optional[str] = None
-    thumbnail_source = Optional[str] = None
+    thumbnail_source : Optional[str] = None
     buylink : Optional[str] = None
 
     # Relationship
     recommendation: Optional["Recommendation"] = Relationship(back_populates="wines")
 
-class Recommendation:
+class Recommendation(SQLModel, table = True):
     """
     One recommendation, containing specific wines
     """
     id : Optional[int] = Field(default = None, primary_key = True)
     user_id : int = Field(foreign_key = "user.id")
-    created_at : datetime = Field(default_factory=datetime.utc)
+    created_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # user input query
     query_text : Optional[str]
 
     # LLM response, mostly for debugging
-    response_text : Optional[str] = None
+    llm_raw_response : Optional[str] = None
+
+    # Conversation history
+    conversation_history : Optional[str] = Field(
+        default = None,
+        description = "serialized JSON object of the user/model turns in list[types.Content] form."
+    )
 
     user: Optional[User] = Relationship(back_populates="recommendations")
     wines: list[RecommendedWine] = Relationship(back_populates="recommendation")
@@ -208,6 +212,5 @@ class RecommendationRead(SQLModel):
     created_at: datetime
     llm_raw_response: Optional[str]
     wines: list[RecommendedWine] = []
-
 
 

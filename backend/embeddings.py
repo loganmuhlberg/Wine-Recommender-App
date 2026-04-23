@@ -8,10 +8,11 @@ import numpy as np
 from typing import Optional
 from sentence_transformers import SentenceTransformer
 import chromadb
+from pathlib import Path
 
 
 ### Global Variables and Configuration
-CHROMA_DB_PATH     = "./wine_db"
+CHROMA_DB_PATH     = str(Path(__file__).parent.parent / "wine_db")
 COLLECTION_NAME    = "wines"
 EMBEDDING_MODEL    = "all-MiniLM-L6-v2"
 

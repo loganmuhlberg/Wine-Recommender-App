@@ -10,7 +10,22 @@ import json
 from typing import Optional
 from pydantic import BaseModel, ValidationError
 
+
+from google import genai
+from google.genai import types
+
 ### Global Variables
+
+_client: Optional[genai.Client] = None
+ 
+def get_client() -> genai.Client:
+    """Instantiate the GenAI client once and reuse it."""
+    global _client
+    # Requires GOOGLE_API_KEY set in environment.
+    if _client is None:
+        _client = genai.Client() 
+    return _client
+
 
 USE_MODEL = "gemini-2.5-flash"
 
@@ -42,6 +57,19 @@ RESPONSE_SCHEMA = """
   ]
 }
 """
+
+### Pydantic Output Schema
+
+class WineRecommendation(BaseModel):
+    candidate_index: int
+    rationale: str
+    food_pairing: str = ""
+    serving_suggestion: str = ""
+ 
+class RecommendationResponse(BaseModel):
+    sommelier_note: str
+    recommendations: list[WineRecommendation]
+
 
 ### Formatting Helper Functions
 
@@ -147,18 +175,74 @@ def _format_candidates(candidates : dict) -> str:
  
     return "\n\n".join(blocks)
 
+def _schema_block() -> str:
+    return json.dumps(RecommendationResponse.model_json_schema(), indent=2)
+
+
+### Gemini Content Helpers
+
+def _user_turn(text: str) -> types.Content:
+    return types.Content(role="user", parts=[types.Part(text=text)])
+ 
+def _model_turn(text: str) -> types.Content:
+    return types.Content(role="model", parts=[types.Part(text=text)])
+ 
+def _extract_text(response) -> str:
+    """
+    Extract only non-thought text parts from a Gemini response.
+    Gemini 2.5 models return internal reasoning parts (thought=True)
+    alongside the actual response which must be filtered out.
+    """
+    parts = []
+    for candidate in response.candidates:
+        for part in candidate.content.parts:
+            if getattr(part, "thought", False):
+                continue
+            if part.text:
+                parts.append(part.text)
+    return "".join(parts).strip()
+
+def serialize_history(history: list[types.Content]) -> str:
+    """
+    Converts list[types.Content] to a JSON string for storage in SQLite.
+    Call this in main.py after get_initial_recommendation() to store history.
+    """
+    return json.dumps([
+        {
+            "role": turn.role,
+            "parts": [{"text": part.text} for part in turn.parts]
+        }
+        for turn in history
+    ])
+
+
+def deserialize_history(history_json: str) -> list[types.Content]:
+    """
+    Reconstructs list[types.Content] from a stored JSON string.
+    Call this in main.py before get_refinement_recommendation() to restore history.
+    """
+    raw = json.loads(history_json)
+    return [
+        types.Content(
+            role=turn["role"],
+            parts=[types.Part(text=p["text"]) for p in turn["parts"]]
+        )
+        for turn in raw
+    ]
+
 
 ### Initial Recommendation Prompt
 
-def build_recommendation_prompt(
+def get_initial_recommendation(
         query : str,
         candidates : list[dict],
         profile : Optional[dict] = None,
         n_recommendations : int = 3,
-) -> list[dict]:
+) -> tuple[Optional[RecommendationResponse], list[types.Content]]:
     """
     Builds the prompt for the LLM to use to recommend wines.
     Utilizes the predefined response schema.
+    Additionally calls gemini and gets response.
 
     Fields:
     - Query: Raw User query used to retrieve candidates.
@@ -166,7 +250,7 @@ def build_recommendation_prompt(
     - Profile : Optional Dictionary object for user taste profile pulled from sqlite if the user has one.
     - n_recommendations: number of recommendations to give back to the user. Default is 3.
 
-    Returns a list with a single user message, ready to be passed to the LLM client.
+    Returns a RecommendationResponse from the LLM, alongside the chat history.
     """
     profile_block = _format_taste_profile(profile or {})
     candidates_block = _format_candidates(candidates)
@@ -192,17 +276,32 @@ Important:
 - Your rationale must directly reference the user's stated preferences, \
 not generic wine descriptions."""
  
-    return "USER:\n" + user_message
+    history = [_user_turn(user_message)]
+ 
+    response = get_client().models.generate_content(
+        model=USE_MODEL,
+        contents=history,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=0.3,
+        ),
+    )
+ 
+    raw    = _extract_text(response)
+    parsed = parse_recommendation_response(raw)
+    history.append(_model_turn(raw))
+ 
+    return parsed, history
 
 ### Refinement Prompting
 
-def build_refinement_prompt(
+def get_refinement_recommendation(
     feedback : str,
     new_candidates : list[dict],
-    conversation_history : str,
+    conversation_history : list[types.Content],
     profile : Optional[dict] = None,
     n_recommendations : int = 3,
-) -> str:
+) -> tuple[Optional[RecommendationResponse], list[types.Content]]:
     """
     Builds the system prompt for a refinement call on a previous recommendation. Includes full
     conversation history so the LLM client understands what it recommended previously and why the user
@@ -216,7 +315,7 @@ def build_refinement_prompt(
     - Profile : Optional Dictionary object for user taste profile pulled from sqlite if the user has one.
     - n_recommendations: number of recommendations to give back to the user. Default is 3.
 
-    Returns the full conversation history + new refined message.
+    Returns the full conversation history + new refined message as a RecommendationResponse
     """
     profile_block = _format_taste_profile(profile or {})
     candidates_block = _format_candidates(new_candidates)
@@ -248,24 +347,25 @@ Respond with valid JSON matching this schema exactly, No markdown. No explanatio
     # Append the new refinement message to the existing conversation history
     # Convert prior conversation into plain text
 
-    full_prompt = conversation_history + f"\nUSER:\n{refinement_message}"
+    updated_history = conversation_history + [_user_turn(refinement_message)]
+ 
+    response = get_client().models.generate_content(
+        model=USE_MODEL,
+        contents=updated_history,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=0.3,
+        ),
+    )
+ 
+    raw    = _extract_text(response)
+    parsed = parse_recommendation_response(raw)
+    updated_history.append(_model_turn(raw))
+ 
+    return parsed, updated_history
 
-    return full_prompt
 
-
-### Response Parser and Pydantic validation classes.
-
-from pydantic import BaseModel, ValidationError
-
-class WineRecommendation(BaseModel):
-    candidate_index: int
-    rationale: str
-    food_pairing: str = ""
-    serving_suggestion: str = ""
-
-class RecommendationResponse(BaseModel):
-    sommelier_note: str
-    recommendations: list[WineRecommendation]
+### Response Parser
 
 def parse_recommendation_response(raw: str) -> Optional[RecommendationResponse]:
     print(f"[debug] First 50 chars repr: {repr(raw[:50])}")
@@ -291,39 +391,5 @@ def parse_recommendation_response(raw: str) -> Optional[RecommendationResponse]:
         print(f"[debug] Full error: {e}")
         print(f"[debug] Full stripped text:\n{text}")
         return None
-
-### Conversation history helper functions
-
-def start_conversation(
-    user_message_list: str,
-    assistant_response: str,
-) -> str:
-    """
-    Creates a new conversation history from the initial exchange.
-    Call this after the first recommendation to seed the history
-    for any subsequent refinement calls.
- 
-    Fields:
-    - user_message_list: the return value of build_recommendation_prompt.
-    - assistant_response: raw string response from LLM client.
- 
-    Returns a conversation history list ready to pass to build_refinement_prompt().
-    """
-    return user_message_list + "\nMODEL\n" + assistant_response
- 
- 
-def append_to_conversation(
-    history: str,
-    user_message: str,
-    assistant_response: str,
-) -> str:
-    """
-    Appends a new exchange to an existing conversation history.
-    Call this after each refinement to keep the history current.
-    """
-    return history + "\nUSER\n" + user_message + "\nMODEL\n" + assistant_response
-
-
-
 
 

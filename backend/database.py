@@ -13,9 +13,10 @@ Usage in FastAPI endpoints:
         return db_create_profile(session, profile)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Generator, Optional
 from sqlmodel import SQLModel, Session, create_engine, select
+from pathlib import Path
  
 from models import (
     User, UserCreate,
@@ -28,7 +29,7 @@ from models import (
 
 # The database lives in a single file at the project root.
 # check_same_thread=False is required for FastAPI's async context.
-DATABASE_URL = "sqlite:///./app.db"
+DATABASE_URL =  f"sqlite:///{Path(__file__).parent.parent / 'app.db'}"
  
 engine = create_engine(
     DATABASE_URL,
@@ -36,7 +37,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
 )
  
-def create_tables_and_db() -> None:
+def create_db_and_tables() -> None:
     """
     Creates the tables and db based on the models created in models.py.
     """
@@ -71,7 +72,6 @@ def db_get_all_users(session: Session) -> list[User]:
     return session.exec(select(User)).all()
 
 ### Taste Profile CRUD
-
 
 def db_create_profile( 
     session: Session, profile_in: TasteProfileCreate
@@ -123,7 +123,7 @@ def db_update_profile(
     for field, value in update_data.items():
         setattr(profile, field, value)
  
-    profile.updated_at = datetime.utc()
+    profile.updated_at = datetime.now(timezone.utc)
     session.add(profile)
     session.commit()
     session.refresh(profile)
@@ -212,4 +212,18 @@ def db_get_wines_for_recommendation(
         .order_by(RecommendedWine.rank)
     )
     return session.exec(statement).all()
+
+def db_update_conversation_history(
+    session: Session,
+    recommendation_id: int,
+    history_json: str,
+) -> None:
+    """
+    Save the converastion history so that the refinement request can be properly evaluated by the LLM.
+    """
+    rec = session.get(Recommendation, recommendation_id)
+    if rec:
+        rec.conversation_history = history_json
+        session.add(rec)
+        session.commit()
  
