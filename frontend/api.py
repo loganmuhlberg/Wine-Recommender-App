@@ -6,6 +6,9 @@ acts as a wrapper for all api calls from the streamlit frontend.
 
 from typing import Optional
 import requests
+import json
+from pathlib import Path
+import streamlit as st
 
 ### configuration
 
@@ -19,8 +22,12 @@ LLM_TIMEOUT = 60
 
 def _get(endpoint: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
     """Fire a GET request and return the parsed JSON or an error dict."""
+    url = f"{API_BASE}{endpoint}"
+    print(f"[api debug] GET {url}")
     try:
         response = requests.get(f"{API_BASE}{endpoint}", timeout=timeout)
+        print(f"[api debug] status: {response.status_code}")
+        print(f"[api debug] raw response: {response.text[:200]}")
         if response.status_code == 200:
             return response.json()
         return {"error": response.json().get("detail", f"HTTP {response.status_code}")}
@@ -34,6 +41,9 @@ def _get(endpoint: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
  
 def _post(endpoint: str, body: dict, timeout: int = DEFAULT_TIMEOUT) -> dict:
     """Fire a POST request and return the parsed JSON or an error dict."""
+    print(f"[api debug] POST {API_BASE}{endpoint}")  # add this
+    print(f"[api debug] body: {body}")
+
     try:
         response = requests.post(
             f"{API_BASE}{endpoint}",
@@ -99,8 +109,9 @@ def get_user(user_id: int) -> dict:
  
     Returns {"error": ...} with a 404 message if the user doesn't exist.
     """
-    return _get(f"/users/{user_id}")
- 
+    result = _get(f"/users/{user_id}")
+    return result
+
  
 ### Taste Profile
 
@@ -124,7 +135,7 @@ def create_profile(
     tannins: str,
     acidity: str,
     flavors: list[str],
-    aromas: list[str],
+    countries: list[str],
     types: list[str],
     regions: list[str],
     price_min: float,
@@ -146,7 +157,7 @@ def create_profile(
         "tannins":   tannins,
         "acidity":   acidity,
         "flavors":   json.dumps(flavors),
-        "aromas":    json.dumps(aromas),
+        "countries":    json.dumps(countries),
         "types":     json.dumps(types),
         "regions":   json.dumps(regions),
         "price_min": price_min,
@@ -164,6 +175,18 @@ def update_profile(user_id: int, updates: dict) -> dict:
         update_profile(1, {"flavors": json.dumps(["cherry", "oak"])})
     """
     return _patch(f"/users/{user_id}/profile", updates)
+
+@st.cache_data
+def load_filter_options() -> dict:
+    """
+    Load filter options from the pre-extracted JSON file.
+    Cached by Streamlit so it only reads from disk once per session.
+    """
+    path = Path(__file__).parent / "filter_options.json"
+    if not path.exists():
+        return {"countries": [], "regions": [], "varietals": []}
+    with open(path) as f:
+        return json.load(f)
 
 ### Recommendations
 

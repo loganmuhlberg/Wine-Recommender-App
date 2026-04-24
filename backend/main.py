@@ -147,7 +147,7 @@ def create_user(user : UserCreate, session : Session = Depends(get_session)):
     user_c = db_create_user(session, user)
     return user_c
 
-@app.get("/users", response_model = UserRead, tags = ["Users"])
+@app.get("/users/{user_id}", response_model = UserRead, tags = ["Users"])
 def get_user(user_id : int, session : Session = Depends(get_session)):
     """Fetch a user by ID. Raises HTTP exception if user id given is not in database."""
     user = db_get_user(session, user_id)
@@ -157,13 +157,16 @@ def get_user(user_id : int, session : Session = Depends(get_session)):
 
 ### Taste Profile Endpoints
 
-@app.post("/users{id}/profile", response_model = TasteProfileRead, tags = ["Profile"])
+@app.post("/users/{user_id}/profile", response_model = TasteProfileRead, tags = ["Profile"])
 def create_profile(user_id : int, profile_in : TasteProfileCreate , session : Session = Depends(get_session)):
     """
     Creates a Taste Profile instance for a user when the quiz is completed.
     """
    # Ensure user exists
+    print(f"[debug] create_profile called with user_id={user_id}")
+    print(f"[debug] profile_in.user_id={profile_in.user_id}")
     user = db_get_user(session, user_id)
+    print(f"[debug] user lookup result: {user}")
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -178,7 +181,7 @@ def create_profile(user_id : int, profile_in : TasteProfileCreate , session : Se
     return profile
 
 
-@app.get("/users{id}/profile", response_model = TasteProfileRead, tags = ["Profile"])
+@app.get("/users/{user_id}/profile", response_model = TasteProfileRead, tags = ["Profile"])
 def get_user_profile(user_id : int, session : Session = Depends(get_session)):
     """
     Fetches a taste profile associated with a given user id.
@@ -189,7 +192,7 @@ def get_user_profile(user_id : int, session : Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Taste Profile not found")
     return profile
 
-@app.patch("/users{id}/profile", response_model = UserRead, tags = ["Profile"])
+@app.patch("/users/{user_id}/profile", response_model = UserRead, tags = ["Profile"])
 def update_user_profile(user_id : int, updates : TasteProfileUpdate, session : Session = Depends(get_session)):
     """
     Updates a user profile given a specific user id.
@@ -305,7 +308,7 @@ def recommend(
     profile = db_get_profile_by_user(session, request.user_id)
     profile_dict = profile.model_dump() if profile else {}
 
-    # 2. Build ChromaDB filters from profile and request candidates
+    # 2. Build ChromaDB filters from request candidates
     query = request.query_text
     price_min = request.price_min if request.price_min else None
     price_max = request.price_max if request.price_max else None

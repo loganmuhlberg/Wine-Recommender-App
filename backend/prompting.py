@@ -109,7 +109,7 @@ def _format_taste_profile(profile: dict) -> str:
         lines.append(f"Maximum price: ${price_max:.0f}")
     
     # Handle case of singular vs multiple wine type preferences
-    wine_types = profile.get("preferred_wine_types", [])
+    wine_types = profile.get("types", [])
     if isinstance(wine_types, str):
         try:
             wine_types = json.loads(wine_types)
@@ -119,7 +119,7 @@ def _format_taste_profile(profile: dict) -> str:
         lines.append(f"Preferred wine types: {', '.join(wine_types)}")
     
     # Handle case of singular vs multiple wine region preferences
-    regions = profile.get("preferred_regions", [])
+    regions = profile.get("regions", [])
     if isinstance(regions, str):
         try:
             regions = json.loads(regions)
@@ -127,6 +127,16 @@ def _format_taste_profile(profile: dict) -> str:
             regions = []
     if regions:
         lines.append(f"Preferred regions: {', '.join(regions)}")
+    
+    # Handle case of singular vs multiple wine country preferences
+    countries = profile.get("countries", [])
+    if isinstance(countries, str):
+        try:
+            countries = json.loads(countries)
+        except json.JSONDecodeError:
+            countries = []
+    if countries:
+        lines.append(f"Preferred countries: {', '.join(countries)}")
 
     if not lines:
         return "No taste profile provided — make general recommendations."

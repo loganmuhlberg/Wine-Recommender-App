@@ -67,17 +67,17 @@ class TasteProfileBase(SQLModel):
         description = "Preferred Types of Wine. Stored as array of one or many of Red, White, Sparkling, Dessert, or Fortified."
     )
 
-    # Flavor and Aroma Notes
+    # Flavor Notes
     flavors : str = Field(
         description = "Preferred Flavors in Wine. Stored as array of input flavors.",
         default = "[]"
     )
-    aromas : str = Field(
-        description = "Preferred Aromas in Wine. Stored as array of input flavors.",
-        default = "[]"
-    )
 
-    # Region Preferences
+    # Country and Region Preferences
+    countries : str = Field(
+        description = "Preferred Wine Countries. Stored as array of input regions.",
+        default ="[]"
+    )
     regions : str = Field(
         description = "Preferred Wine Regions. Stored as array of regions (e.g. ['Fruili', 'Bordeaux'])",
         default = "[]"
@@ -101,13 +101,6 @@ class TasteProfileCreate(TasteProfileBase):
     """
     user_id : int
 
-    def set_flavors(self, in_flavors : list[str]):
-        self.flavors = json.dumps(in_flavors)
-    def set_regions(self, in_regions : list[str]):
-        self.regions = json.dumps(in_regions)
-    def set_types(self, in_types : list[str]):
-        self.types = json.dumps(in_types)
-
 
 class TasteProfileUpdate(SQLModel):
     """
@@ -122,6 +115,7 @@ class TasteProfileUpdate(SQLModel):
     price_max: Optional[float] = None
     types: Optional[str] = None
     regions: Optional[str] = None
+    countries : Optional[str] = None
 
 class TasteProfileRead(TasteProfileBase):
     """
