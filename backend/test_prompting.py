@@ -11,7 +11,8 @@ Makes 2 real API calls (1 initial + 1 refinement).
 import os, json
 from dotenv import load_dotenv
 load_dotenv()
- 
+
+from embeddings import get_recommended_wines
 from prompting import (
     get_initial_recommendation,
     get_refinement_recommendation,
@@ -23,65 +24,21 @@ from prompting import (
 # ---------------------------------------------------------------------------
  
 MOCK_PROFILE = {
-    "sweetness": "dry",
-    "body": "full",
-    "tannins": "high",
+    "sweetness": "sweet",
+    "body": "medium",
+    "tannins": "low-medium",
     "acidity": "medium",
-    "favorite_flavors": json.dumps(["dark cherry", "oak", "tobacco", "leather"]),
-    "price_min": 20.0,
+    "favorite_flavors": json.dumps(["vanilla", "orange", "strawberry", "dark cherry"]),
+    "price_min": 10.0,
     "price_max": 70.0,
-    "preferred_wine_types": json.dumps(["red"]),
-    "preferred_regions": json.dumps(["Bordeaux", "Napa Valley"]),
-    "additional_notes": "Prefers Old World structure when possible.",
+    "preferred_wine_types": json.dumps(["red", "white", "rose"]),
+    "preferred_regions":[],
 }
  
-MOCK_CANDIDATES = [
-    {
-        "title": "Chateau Leoville-Barton 2015",
-        "winery": "Chateau Leoville-Barton",
-        "variety": "Cabernet Sauvignon Blend",
-        "country": "France", "province": "Bordeaux", "region_1": "Saint-Julien",
-        "points": 95, "price": 55.0,
-        "description": "Rich and structured with dark fruit, cedar, and firm tannins. "
-                       "Notes of tobacco and leather emerge after decanting. Long finish.",
-    },
-    {
-        "title": "Caymus Vineyards 2016 Cabernet Sauvignon",
-        "winery": "Caymus Vineyards",
-        "variety": "Cabernet Sauvignon",
-        "country": "US", "province": "California", "region_1": "Napa Valley",
-        "points": 92, "price": 65.0,
-        "description": "Bold and plush with blackberry, vanilla, and toasted oak. "
-                       "Full-bodied with velvety tannins and a long, warm finish.",
-    },
-    {
-        "title": "Ridge 2017 Monte Bello",
-        "winery": "Ridge Vineyards",
-        "variety": "Cabernet Sauvignon",
-        "country": "US", "province": "California", "region_1": "Santa Cruz Mountains",
-        "points": 96, "price": 68.0,
-        "description": "Elegant and precise with cassis, dried herbs, and minerality. "
-                       "Firm fine-grained tannins with excellent aging potential.",
-    },
-    {
-        "title": "Penfolds Bin 389 Cabernet Shiraz 2018",
-        "winery": "Penfolds",
-        "variety": "Cabernet Sauvignon-Shiraz",
-        "country": "Australia", "province": "South Australia", "region_1": "Multi-regional blend",
-        "points": 91, "price": 40.0,
-        "description": "Rich blackcurrant and dark chocolate with hints of mocha. "
-                       "Full-bodied with grippy tannins and good concentration.",
-    },
-    {
-        "title": "Stag's Leap Wine Cellars 2017 CASK 23",
-        "winery": "Stag's Leap Wine Cellars",
-        "variety": "Cabernet Sauvignon",
-        "country": "US", "province": "California", "region_1": "Stags Leap District",
-        "points": 97, "price": 69.0,
-        "description": "Dark cherry, violets, and graphite. Silky tannins, "
-                       "impeccable balance, and a very long finish.",
-    },
-]
+MOCK_CANDIDATES = get_recommended_wines(
+    query = "Sweet, fruity wine that isn't too dry.",
+    price_max = 50
+)
  
  
 def print_response(parsed: RecommendationResponse, candidates: list[dict]):
@@ -102,7 +59,7 @@ def test_initial():
     print("=" * 60)
  
     parsed, history = get_initial_recommendation(
-        query="I want something bold to pair with a ribeye steak tonight",
+        query="Sweet, fruity wine that isn't too dry.",
         candidates=MOCK_CANDIDATES,
         profile=MOCK_PROFILE,
         n_recommendations=3,
