@@ -13,7 +13,7 @@ import streamlit as st
 from pathlib import Path
 from api import get_user_recommendations
  
-# Shared styling
+### Shared styling
  
 st.markdown("""
 <style>
@@ -223,7 +223,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
  
-# Auth guard
+### Auth guard
  
 if "user_id" not in st.session_state or st.session_state["user_id"] is None:
     st.warning("Please log in first.")
@@ -232,7 +232,7 @@ if "user_id" not in st.session_state or st.session_state["user_id"] is None:
 user_id      = st.session_state["user_id"]
 display_name = st.session_state.get("display_name", "")
  
-# Page header
+### Page header
  
 st.markdown(
     '<div class="page-title">Your Cellar</div>',
@@ -244,7 +244,7 @@ st.markdown(
 )
 st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
  
-# Navigation
+### Navigation
  
 nav_col1, nav_col2 = st.columns(2)
 with nav_col1:
@@ -256,12 +256,12 @@ with nav_col2:
  
 st.markdown("<br>", unsafe_allow_html=True)
  
-# Load history
+### Load history
  
 with st.spinner("Loading your cellar..."):
     history = get_user_recommendations(user_id)
  
-# Empty state
+### Empty state
  
 if not history:
     st.markdown("""
@@ -275,7 +275,7 @@ if not history:
     """, unsafe_allow_html=True)
     st.stop()
  
-# Render history entries
+### Render history entries
  
 st.caption(f"{len(history)} recommendation{'s' if len(history) != 1 else ''} in your cellar.")
  
@@ -287,14 +287,14 @@ for i, rec in enumerate(history):
     wine_names = [w.get("wine_name", "").split("(")[0].strip() for w in wines[:3]]
     preview    = " · ".join(wine_names) if wine_names else "No wines"
  
-    # Format the query text for display
+    # Format the query text
     query_display = rec.get("query_text", "Untitled recommendation")
     if len(query_display) > 80:
         query_display = query_display[:80] + "..."
  
     with st.expander(f'"{query_display}"  —  {preview}', expanded=(i == 0)):
  
-        # Reload button — loads this rec into active session and goes to rec page
+        # Reload button
         reload_col, spacer = st.columns([1, 3])
         with reload_col:
             if st.button(
@@ -305,7 +305,6 @@ for i, rec in enumerate(history):
                 st.session_state["current_rec_id"] = rec.get("recommendation_id")
                 st.switch_page("pages/2_recommendations.py")
  
-        # Sommelier note
         if rec.get("sommelier_note"):
             st.markdown(
                 f'<div class="sommelier-note">{rec["sommelier_note"]}</div>',
@@ -339,7 +338,7 @@ for i, rec in enumerate(history):
                         unsafe_allow_html=True,
                     )
  
-                    # Meta
+                    # Metadata
                     meta_parts = [
                         p for p in [
                             wine.get("winery"),

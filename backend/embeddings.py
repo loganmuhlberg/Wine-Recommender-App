@@ -90,7 +90,7 @@ def build_filter(
     if price_min is not None and price_max is not None:
         conditions.extend(_price_filter(price_min, price_max))
     elif price_max is not None:
-        # Max price only — still exclude unknown-price wines
+        # Max price only
         conditions.append({"price": {"$lte": price_max}})
         conditions.append({"price": {"$gte": 0}})
     
@@ -183,13 +183,13 @@ def get_recommended_wines(
             "points":      meta.get("points", 0),
             "price":       meta.get("price", -1.0),
             "description": doc,
-            # Convert cosine distance → similarity score (distance of 0 = perfect match)
+            # Convert cosine distance to similarity
             "similarity":  round(1 - dist, 4),
         })
 
     if mmr and results.get("embeddings"):
         candidate_embeddings = results["embeddings"][0]
-        candidates = wines  # the already-unpacked list
+        candidates = wines
         return mmr_select(query_embedding[0], candidate_embeddings, candidates, num_results, mmr_lambda)
  
     return wines
@@ -205,12 +205,12 @@ def mmr_select(
 ) -> list[dict]:
     """
     Maximal Marginal Relevance selection over a candidate set.
-    
-    query_embedding:      the embedded user query (1D)
+    Fields:
+    query_embedding: the embedded user query (1D)
     candidate_embeddings: embeddings of all candidates returned by ChromaDB
-    candidates:           the unpacked wine dicts matching candidate_embeddings
-    k:                    how many wines to return
-    lambda_param:         0=max diversity, 1=max similarity, 0.7 is a good default
+    candidates: the unpacked wine dicts matching candidate_embeddings
+    k: how many wines to return
+    lambda_param: 0=max diversity, 1=max similarity, 0.7 is a good default
     """
     query_vec = np.array(query_embedding)
     cand_vecs = np.array(candidate_embeddings)
@@ -225,10 +225,10 @@ def mmr_select(
 
     for _ in range(min(k, len(candidates))):
         if not selected_indices:
-            # First pick — pure similarity to query
+            # First pick
             best = max(remaining, key=lambda i: query_sims[i])
         else:
-            # Subsequent picks — balance similarity vs redundancy
+            # Subsequent picks
             selected_vecs = cand_vecs[selected_indices]
             scores = []
             for i in remaining:

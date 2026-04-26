@@ -23,6 +23,8 @@ import httpx
 from dataclasses import dataclass
 from typing import Optional
 
+### Global Variables
+
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 
 BRAVE_IMAGE_URL = "https://api.search.brave.com/res/v1/images/search"
@@ -48,19 +50,18 @@ class WineEnrichment:
     """
     wine_name: str
 
-    # Image fields — use thumbnail_url for display (proxied, resized to 500px wide)
+    # Image fields
     thumbnail_url: Optional[str] = None      
-    image_source: Optional[str] = None       # domain the image came from
+    image_source: Optional[str] = None 
 
     # Buy/info link fields
     buy_url: Optional[str] = None
-    buy_source: Optional[str] = None         # e.g. "wine.com", "vivino.com"
+    buy_source: Optional[str] = None
 
 
 def _build_query(wine_name: str, winery: str, region: str) -> str:
     """
-    Build the tightest possible search string from available test data fields.
-    e.g. "Caymus Vineyards Cabernet Sauvignon Napa Valley"
+    Build the most accurate possible search name.
     """
     parts = [p.strip() for p in [winery, wine_name, region] if p and p.strip()]
     return " ".join(parts)
@@ -73,13 +74,6 @@ async def _brave_image_search(
     """
     Search Brave's image index for result thumbnail to display on results page.
     Returns raw result list or [] on failure. 
-    Response shape per result:
-      {
-        "thumbnail": {"src": "https://imgs.search.brave.com/..."},
-        "properties": {"url": "https://original-source.com/image.jpg"},
-        "source": "wine.com",
-        "title": "Caymus Cabernet Sauvignon ..."
-      }
     """
     headers = {
         "X-Subscription-Token": BRAVE_API_KEY,
@@ -87,7 +81,7 @@ async def _brave_image_search(
     }
     params = {
         "q": query,
-        "count": 3,           # fetch top 3 so we can pick the best
+        "count": 3,
         "search_lang": "en",
         "country": "us",
         "safesearch": "strict",
@@ -115,12 +109,6 @@ async def _brave_web_search(
 ) -> list[dict]:
     """
     Search Brave's web index. Returns raw result list or [] on failure.
-    Response shape per result:
-      {
-        "url": "https://www.wine.com/product/...",
-        "title": "Caymus Cabernet Sauvignon ...",
-        "meta_url": {"hostname": "wine.com", ...}
-      }
     """
     headers = {
         "X-Subscription-Token": BRAVE_API_KEY,
@@ -128,7 +116,7 @@ async def _brave_web_search(
     }
     params = {
         "q": query,
-        "count": 5,           # fetch top 5 so we can prefer retail domains
+        "count": 5, 
         "search_lang": "en",
         "country": "us",
     }
@@ -238,7 +226,7 @@ async def enrich_wine(
 async def enrich_wines_batch(wines: list[dict]) -> list[WineEnrichment]:
     """
     Enrich a list of wines sequentially with a small delay between each
-    to be polite to Brave's rate limits.
+    to not violate brave's api call limit
 
     Each dict should have keys: wine_name, winery, region, country
     Returns results in the same order as input.
@@ -252,5 +240,5 @@ async def enrich_wines_batch(wines: list[dict]) -> list[WineEnrichment]:
             country=wine.get("country", ""),
         )
         results.append(enrichment)
-        await asyncio.sleep(0.3)   # gentle pacing between wines
+        await asyncio.sleep(0.3)
     return results

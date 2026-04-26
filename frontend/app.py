@@ -296,6 +296,7 @@ with tab_new:
     
                 import time
                 time.sleep(3)
+                st.switch_page("pages/1_taste_profile.py")
 
     st.markdown(
       '<div class="info-text">We remember you by your guest ID. Make sure to bookmark the page once you are onto the recommendations page!</div>',

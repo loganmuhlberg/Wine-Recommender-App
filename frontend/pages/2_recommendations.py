@@ -259,7 +259,6 @@ st.markdown("""
 
 ### Make Sure user is logged in
 
-
 if "user_id" not in st.session_state or st.session_state["user_id"] is None:
     st.warning("Please log in first.")
     st.switch_page("app.py")
