@@ -22,10 +22,10 @@ from api import health_check, create_user, get_user
 ### Page Configuration
 
 st.set_page_config(
-    page_title="Wine Recommender",
+    page_title="Vinny: Your Personal AI Sommelier",
     page_icon="🍷",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 ### Custom Styling? Not sure If I want this yet.
@@ -226,10 +226,10 @@ if st.session_state["user_id"] is not None:
 # Backend health check
 backend_ok = health_check()
 
-# Page layout: not sure how this works tbh
+# Page layout:
 
 # Hero section
-st.markdown('<div class="hero-title">Wine Recommender</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-title">Vinny</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="hero-subtitle">Your personal sommelier, powered by memory.</div>',
     unsafe_allow_html=True,
@@ -286,8 +286,16 @@ with tab_new:
                 # Persist user_id in URL so they can return
                 st.query_params["user_id"] = str(result["id"])
  
-                st.success(f"Welcome, {new_name}! Setting up your profile...")
-                st.switch_page("pages/1_taste_profile.py")
+                st.success(f"Welcome, {new_name}!")
+                st.info(
+                    f"**Your Guest ID is: {result['id']}**  \n"
+                    f"Save this number — you'll need it to log back in on future visits.",
+                    icon="🔑"
+                )
+                st.caption("Continuing to your taste profile in a moment...")
+    
+                import time
+                time.sleep(3)
 
     st.markdown(
       '<div class="info-text">We remember you by your guest ID. Make sure to bookmark the page once you are onto the recommendations page!</div>',
@@ -346,7 +354,7 @@ with tab_return:
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="info-text">Recommendations powered by 130,000 Wine Enthusiast reviews '
+    '<div class="info-text">Recommendations powered by 170,000 Wine Enthusiast reviews '
     'and Gemini 2.5 Flash.</div>',
     unsafe_allow_html=True,
 )

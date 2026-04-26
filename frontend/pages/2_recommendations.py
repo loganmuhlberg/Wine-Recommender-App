@@ -447,7 +447,7 @@ def render_wine_card(wine: dict, col):
 
         # Buy link
         if wine.get("buy_link"):
-            source = wine.get("buy_source", "").replace("www.", "")
+            source = (wine.get("buy_source") or "").replace("www.", "")
             st.markdown("<br>", unsafe_allow_html=True)
             st.link_button(
                 f"Find on {source}" if source else "Find this wine",
@@ -585,6 +585,6 @@ if st.session_state["current_rec"]:
         if "error" in result:
             st.error(f"Could not refine recommendations: {result['error']}")
         else:
-            st.session_state["current_rec"]    = result
+            st.session_state["current_rec"] = result
             st.session_state["current_rec_id"] = result.get("recommendation_id")
             st.rerun()
