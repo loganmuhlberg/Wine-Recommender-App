@@ -1,5 +1,6 @@
 wine_db/
 data/
+wine_db
 app.db
 __pycache__/
 *.pyc
